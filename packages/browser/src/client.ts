@@ -8,7 +8,7 @@ import type {
   SeverityLevel,
 } from '@sentry/core';
 import type { BrowserClientReplayOptions } from '@sentry/core/browser';
-import { addAutoIpAddressToSession, applySdkMetadata, Client, getSDKSource } from '@sentry/core';
+import { addAutoIpAddressToSession, applySdkMetadata, Client, getSDKSource, timestampInSeconds } from '@sentry/core';
 import { eventFromException, eventFromMessage } from './eventbuilder';
 import { WINDOW } from './helpers';
 import type { BrowserTransportOptions } from './transports/types';
@@ -130,6 +130,11 @@ export class BrowserClient extends Client<BrowserClientOptions> {
     // Client report outcomes don't listen to the `flush` hook, so we flush them separately.
     if (WINDOW.document) {
       WINDOW.document.addEventListener('visibilitychange', () => {
+        // Devices usually hide the page before they go to sleep and show it again when they wake up. Checking the
+        // clocks at both points pins a clock drift correction to the sleep itself, rather than to whenever the SDK
+        // happens to take its next timestamp, so performance entries on either side of it convert correctly.
+        timestampInSeconds();
+
         if (WINDOW.document.visibilityState === 'hidden') {
           if (sendClientReports) {
             this._flushOutcomes();
