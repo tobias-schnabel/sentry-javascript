@@ -80,12 +80,10 @@
     "optionalVariants": [
       {
         "assert-command": "pnpm test:assert:bun",
-        "runtime": "bun",
         "label": "react-router-8-framework (bun)"
       },
       {
         "assert-command": "pnpm test:assert:deno",
-        "runtime": "deno",
         "deno-version": "v2.9.0",
         "label": "react-router-8-framework (deno)"
       },

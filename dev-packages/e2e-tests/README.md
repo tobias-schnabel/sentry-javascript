@@ -147,9 +147,9 @@ creating a new app. `react-router-8-framework` is the reference setup.
   `runtimeEntryPlugin('app/entry.server.tsx', 'cloudflare')`.
 - **Scripts**: put `RUNTIME` in a named script (`"test:assert:bun": "RUNTIME=bun pnpm test:assert"`), not in the
   `assert-command`. `yarn test:run` prefixes the command with `volta run`, which cannot run a leading env assignment.
-- **`runtime` matrix key**: set `"runtime": "bun"` or `"runtime": "deno"` on the variant. CI then installs that runtime
-  for the job, so a new variant needs no change to `.github/workflows/build.yml`. A variant can also pin the version,
-  for example `"deno-version": "v2.9.0"`.
+- **Variant label**: CI installs Bun or Deno for a job whose `label` contains `bun` or `deno` (for example
+  `react-router-8-framework (bun)`), so a new variant needs no change to `.github/workflows/build.yml`. A variant can
+  also pin the Deno version, for example `"deno-version": "v2.9.0"`.
 - **Bun**: under `bun run` the SDK cannot inject diagnostics channels into packages that stay outside the build (for
   example Express behind `react-router-serve`), so those produce no spans on Bun. Where a test depends on them, branch
   on `RUNTIME` and say why in a comment.
@@ -157,8 +157,8 @@ creating a new app. `react-router-8-framework` is the reference setup.
 ```json
 "sentryTest": {
   "optionalVariants": [
-    { "assert-command": "pnpm test:assert:bun", "runtime": "bun", "label": "my-app (bun)" },
-    { "assert-command": "pnpm test:assert:deno", "runtime": "deno", "label": "my-app (deno)" },
+    { "assert-command": "pnpm test:assert:bun", "label": "my-app (bun)" },
+    { "assert-command": "pnpm test:assert:deno", "label": "my-app (deno)" },
     {
       "build-command": "pnpm test:build:cloudflare",
       "assert-command": "pnpm test:assert:cloudflare",
