@@ -7,6 +7,7 @@ import { SpanBuffer } from '../tracing/spans/spanBuffer';
 import { debug } from '../utils/debug-logger';
 import { spanIsSampled } from '../utils/spanUtils';
 import { safeUnref } from '../utils/timer';
+import { vercelWaitUntil } from '../utils/vercelWaitUntil';
 
 export const INTEGRATION_NAME = 'SpanStreaming' as const;
 
@@ -54,10 +55,12 @@ export const spanStreamingIntegration = defineIntegration((options: SpanStreamin
           const traceId = segmentSpan.spanContext().traceId;
           // `safeUnref` so an enabled `flushOnSegmentEnd` on a server runtime can't keep the
           // process alive until the timer fires (no-op in the browser, where it's the default path).
-          safeUnref(
-            setTimeout(() => {
-              buffer.flush(traceId);
-            }, 500),
+          // On Vercel (Fluid compute) the instance is frozen right after the response, so without
+          // `waitUntil` this flush would only run once a later request thaws the instance.
+          vercelWaitUntil(
+            new Promise(resolve => {
+              safeUnref(setTimeout(() => resolve(buffer.flush(traceId)), 500));
+            }),
           );
         });
       }

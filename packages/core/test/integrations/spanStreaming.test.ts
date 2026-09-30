@@ -2,6 +2,7 @@ import * as SentryCore from '../../src';
 import { debug } from '../../src';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { spanStreamingIntegration } from '../../src/integrations/spanStreaming';
+import { GLOBAL_OBJ } from '../../src/utils/worldwide';
 import { TestClient, getDefaultTestClientOptions } from '../mocks/client';
 
 const mockSpanBufferInstance = vi.hoisted(() => ({
@@ -196,6 +197,45 @@ describe('spanStreamingIntegration (core)', () => {
 
     expect(mockSpanBufferInstance.flush).toHaveBeenCalledWith(span.spanContext().traceId);
 
+    vi.useRealTimers();
+  });
+
+  it('keeps the Vercel instance alive until the trace is flushed after the segment span ends', async () => {
+    vi.useFakeTimers();
+    const vercelRequestContextSymbol = Symbol.for('@vercel/request-context');
+    const globalWithVercelRequestContext = GLOBAL_OBJ as unknown as Record<symbol, unknown>;
+    const originalRequestContext = globalWithVercelRequestContext[vercelRequestContextSymbol];
+    let waitUntilTask: Promise<unknown> | undefined;
+    const waitUntil = vi.fn((task: Promise<unknown>) => {
+      waitUntilTask = task;
+    });
+    globalWithVercelRequestContext[vercelRequestContextSymbol] = { get: () => ({ waitUntil }) };
+
+    const client = new TestClient({
+      ...getDefaultTestClientOptions(),
+      dsn: 'https://username@domain/123',
+      integrations: [spanStreamingIntegration()],
+      traceLifecycle: 'stream',
+    });
+
+    SentryCore.setCurrentClient(client);
+    client.init();
+
+    const sent = Promise.resolve('sent');
+    mockSpanBufferInstance.flush.mockReturnValueOnce(sent);
+
+    const span = new SentryCore.SentrySpan({ name: 'test' });
+    client.emit('afterSegmentSpanEnd', span);
+
+    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+    expect(mockSpanBufferInstance.flush).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(500);
+
+    expect(mockSpanBufferInstance.flush).toHaveBeenCalledWith(span.spanContext().traceId);
+    await expect(waitUntilTask).resolves.toBe('sent');
+
+    globalWithVercelRequestContext[vercelRequestContextSymbol] = originalRequestContext;
     vi.useRealTimers();
   });
 });

@@ -144,7 +144,7 @@ export class SpanBuffer {
    * Flush spans of a specific trace.
    * In contrast to {@link SpanBuffer.drain}, this method does not flush all traces, but only the one with the given traceId.
    */
-  public flush(traceId: string): void {
+  public flush(traceId: string): PromiseLike<unknown> | void {
     const bucket = this._traceBuckets.get(traceId);
     if (!bucket) {
       return;
@@ -178,11 +178,13 @@ export class SpanBuffer {
 
     DEBUG_BUILD && debug.log(`Sending span envelope for trace ${traceId} with ${cleanedSpans.length} spans`);
 
-    this._client.sendEnvelope(envelope).then(null, reason => {
+    const sent = this._client.sendEnvelope(envelope).then(null, reason => {
       DEBUG_BUILD && debug.error('Error while sending streamed span envelope:', reason);
     });
 
     this._removeTrace(traceId);
+
+    return sent;
   }
 
   private _removeTrace(traceId: string): void {
